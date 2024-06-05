@@ -74,3 +74,22 @@ func Test(t *testing.T) {
 		t.Logf("%s,byte len %d,cost:%dms", k, len(v.Result), v.Cost)
 	}
 }
+
+func TestTimeOut(t *testing.T) {
+	task := New[any]()
+	task.Add(func() (any, error) {
+		return 1, nil
+	})
+	task.Add(func() (any, error) {
+		return 2, nil
+	})
+	task.Add(func() (any, error) {
+		time.Sleep(time.Second * 2)
+		return 3, nil
+	})
+	err := task.Run(time.Second)
+	if err != nil {
+		t.Logf(err.Error())
+	}
+	time.Sleep(time.Second * 5)
+}

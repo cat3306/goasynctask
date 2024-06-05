@@ -16,6 +16,7 @@ type AsyncTask[T any] struct {
 	taskSet       map[string]func() (T, error)
 	taskResultSet map[string]taskResult[T]
 	pool          GoroutinePool
+	timeout       bool
 }
 
 // 限时并发
@@ -69,12 +70,15 @@ func (c *AsyncTask[T]) Run(timeout time.Duration) error {
 			now := time.Now()
 			result, err := task()
 			cost := time.Since(now).Milliseconds()
-			ch <- taskResult[T]{
-				Key:    key,
-				Err:    err,
-				Result: result,
-				Cost:   cost,
+			if !c.timeout {
+				ch <- taskResult[T]{
+					Key:    key,
+					Err:    err,
+					Result: result,
+					Cost:   cost,
+				}
 			}
+
 		}(key, task)
 	}
 	fillRspFunc := func(taskRsp taskResult[T]) (done bool) {
@@ -98,6 +102,7 @@ func (c *AsyncTask[T]) Run(timeout time.Duration) error {
 				}
 			}
 			close(ch)
+			c.timeout = true
 			return errors.New("tasks time out")
 		case taskRsp := <-ch:
 			if fillRspFunc(taskRsp) {
