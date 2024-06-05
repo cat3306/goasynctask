@@ -64,23 +64,34 @@ func (c *AsyncTask[T]) Run(timeout time.Duration) error {
 	ch := make(chan taskResult[T], taskLen)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-
-	for key, task := range c.taskSet {
-		go func(key string, task func() (T, error)) {
-			now := time.Now()
-			result, err := task()
-			cost := time.Since(now).Milliseconds()
-			if !c.timeout {
-				ch <- taskResult[T]{
-					Key:    key,
-					Err:    err,
-					Result: result,
-					Cost:   cost,
-				}
+	f := func(key string, task func() (T, error)) {
+		now := time.Now()
+		result, err := task()
+		cost := time.Since(now).Milliseconds()
+		if !c.timeout {
+			ch <- taskResult[T]{
+				Key:    key,
+				Err:    err,
+				Result: result,
+				Cost:   cost,
 			}
-
-		}(key, task)
+		}
 	}
+	if c.pool == nil {
+		for key, task := range c.taskSet {
+			go f(key, task)
+		}
+	} else {
+		for key, task := range c.taskSet {
+			err := c.pool.Submit(func() {
+				f(key, task)
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	fillRspFunc := func(taskRsp taskResult[T]) (done bool) {
 		c.taskResultSet[taskRsp.Key] = taskRsp
 		return len(c.taskResultSet) >= taskLen
