@@ -1,39 +1,76 @@
 package goasynctask
 
 import (
-	"fmt"
+	"io"
+	"net/http"
 	"testing"
 	"time"
 )
 
 func Test(t *testing.T) {
-	task := New[string]()
-	task.Add(func() (string, error) {
-		fmt.Println(1)
-		return "1", nil
+	task := New[[]byte]()
+	task.AddWithKey("baidu", func() ([]byte, error) {
+		rsp, err := http.Get("https://www.baidu.com")
+		if err != nil {
+			return nil, err
+		}
+		raw, err := io.ReadAll(rsp.Body)
+		if err != nil {
+			return nil, err
+		}
+		return raw, nil
 	})
-	task.Add(func() (string, error) {
-		fmt.Println(1)
-		return "2", nil
+	task.AddWithKey("bilibili", func() ([]byte, error) {
+		rsp, err := http.Get("https://www.bilibili.com")
+		if err != nil {
+			return nil, err
+		}
+		raw, err := io.ReadAll(rsp.Body)
+		if err != nil {
+			return nil, err
+		}
+		return raw, nil
 	})
-	task.Add(func() (string, error) {
-		fmt.Println(2)
-		return "3", nil
+	task.AddWithKey("godev", func() ([]byte, error) {
+		rsp, err := http.Get("https://go.dev")
+		if err != nil {
+			return nil, err
+		}
+		raw, err := io.ReadAll(rsp.Body)
+		if err != nil {
+			return nil, err
+		}
+		return raw, nil
 	})
-	task.Add(func() (string, error) {
-		fmt.Println(2)
-		return "3", nil
+	task.AddWithKey("github", func() ([]byte, error) {
+		rsp, err := http.Get("https://github.com")
+		if err != nil {
+			return nil, err
+		}
+		raw, err := io.ReadAll(rsp.Body)
+		if err != nil {
+			return nil, err
+		}
+		return raw, nil
 	})
-	task.Add(func() (string, error) {
-		fmt.Println(2)
-		return "2", nil
-	})
-	task.Add(func() (string, error) {
-		fmt.Println(2)
-		return "2", nil
+	task.AddWithKey("blog", func() ([]byte, error) {
+		rsp, err := http.Get("https://cat3306.github.io")
+		if err != nil {
+			return nil, err
+		}
+		raw, err := io.ReadAll(rsp.Body)
+		if err != nil {
+			return nil, err
+		}
+		return raw, nil
 	})
 	err := task.Run(time.Second)
 	if err != nil {
-		t.Log(err)
+		t.Fatal(err)
+
+	}
+	m := task.Result()
+	for k, v := range m {
+		t.Logf("%s,byte len %d,cost:%dms", k, len(v.Result), v.Cost)
 	}
 }

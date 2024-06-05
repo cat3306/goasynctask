@@ -8,14 +8,14 @@ import (
 	"time"
 )
 
-type goroutinePool interface {
+type GoroutinePool interface {
 	Submit(func()) error
 }
 type AsyncTask[T any] struct {
 	cnt           int
 	taskSet       map[string]func() (T, error)
 	taskResultSet map[string]taskResult[T]
-	pool          goroutinePool
+	pool          GoroutinePool
 }
 
 // 限时并发
@@ -23,6 +23,14 @@ func New[T any]() AsyncTask[T] {
 	return AsyncTask[T]{
 		taskSet:       map[string]func() (T, error){},
 		taskResultSet: map[string]taskResult[T]{},
+	}
+
+}
+func NewWithPool[T any](pool GoroutinePool) AsyncTask[T] {
+	return AsyncTask[T]{
+		taskSet:       map[string]func() (T, error){},
+		taskResultSet: map[string]taskResult[T]{},
+		pool:          pool,
 	}
 
 }
@@ -44,6 +52,7 @@ type taskResult[T any] struct {
 	Key    string
 	Err    error
 	Result T
+	Cost   int64 //ms
 }
 
 func (c *AsyncTask[T]) Result() map[string]taskResult[T] {
@@ -57,11 +66,14 @@ func (c *AsyncTask[T]) Run(timeout time.Duration) error {
 
 	for key, task := range c.taskSet {
 		go func(key string, task func() (T, error)) {
+			now := time.Now()
 			result, err := task()
+			cost := time.Since(now).Milliseconds()
 			ch <- taskResult[T]{
 				Key:    key,
 				Err:    err,
 				Result: result,
+				Cost:   cost,
 			}
 		}(key, task)
 	}
