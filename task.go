@@ -121,6 +121,7 @@ func (c *AsyncTask[T]) Run(timeout time.Duration) error {
 			return errors.New("tasks time out")
 		case taskRsp := <-ch:
 			if fillRspFunc(taskRsp) {
+				close(ch)
 				return nil
 			}
 		}
