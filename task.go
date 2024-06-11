@@ -87,8 +87,12 @@ func (c *AsyncTask[T]) Run(timeout time.Duration) error {
 				f(key, task)
 			})
 			if err != nil {
-				return err
+				ch <- taskResult[T]{
+					Key: key,
+					Err: err,
+				}
 			}
+
 		}
 	}
 
