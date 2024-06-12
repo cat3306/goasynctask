@@ -43,7 +43,7 @@ func Test(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := task.Result()
+	m := task.ResultSet()
 	for k, v := range m {
 		t.Logf("%s,byte len %d,cost:%dms", k, len(v.Result), v.Cost)
 	}
@@ -96,7 +96,7 @@ func TestWithGoPool(t *testing.T) {
 		t.Fatal(err)
 
 	}
-	m := task.Result()
+	m := task.ResultSet()
 	for k, v := range m {
 		t.Logf("%s,byte len %d,cost:%dms", k, len(v.Result), v.Cost)
 	}

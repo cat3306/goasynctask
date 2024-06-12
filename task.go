@@ -14,7 +14,7 @@ type GoroutinePool interface {
 type AsyncTask[T any] struct {
 	cnt           int
 	taskSet       map[string]func() (T, error)
-	taskResultSet map[string]taskResult[T]
+	taskResultSet map[string]*taskResult[T]
 	pool          GoroutinePool
 	timeout       bool
 }
@@ -23,14 +23,14 @@ type AsyncTask[T any] struct {
 func New[T any]() AsyncTask[T] {
 	return AsyncTask[T]{
 		taskSet:       map[string]func() (T, error){},
-		taskResultSet: map[string]taskResult[T]{},
+		taskResultSet: map[string]*taskResult[T]{},
 	}
 
 }
 func NewWithPool[T any](pool GoroutinePool) AsyncTask[T] {
 	return AsyncTask[T]{
 		taskSet:       map[string]func() (T, error){},
-		taskResultSet: map[string]taskResult[T]{},
+		taskResultSet: map[string]*taskResult[T]{},
 		pool:          pool,
 	}
 
@@ -56,12 +56,12 @@ type taskResult[T any] struct {
 	Cost   int64 //ms
 }
 
-func (c *AsyncTask[T]) Result() map[string]taskResult[T] {
+func (c *AsyncTask[T]) ResultSet() map[string]*taskResult[T] {
 	return c.taskResultSet
 }
 func (c *AsyncTask[T]) Run(timeout time.Duration) error {
 	taskLen := len(c.taskSet)
-	ch := make(chan taskResult[T], taskLen)
+	ch := make(chan *taskResult[T], taskLen)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	f := func(key string, task func() (T, error)) {
@@ -69,7 +69,7 @@ func (c *AsyncTask[T]) Run(timeout time.Duration) error {
 		result, err := task()
 		cost := time.Since(now).Milliseconds()
 		if !c.timeout {
-			ch <- taskResult[T]{
+			ch <- &taskResult[T]{
 				Key:    key,
 				Err:    err,
 				Result: result,
@@ -87,7 +87,7 @@ func (c *AsyncTask[T]) Run(timeout time.Duration) error {
 				f(key, task)
 			})
 			if err != nil {
-				ch <- taskResult[T]{
+				ch <- &taskResult[T]{
 					Key: key,
 					Err: err,
 				}
@@ -96,7 +96,7 @@ func (c *AsyncTask[T]) Run(timeout time.Duration) error {
 		}
 	}
 
-	fillRspFunc := func(taskRsp taskResult[T]) (done bool) {
+	fillRspFunc := func(taskRsp *taskResult[T]) (done bool) {
 		c.taskResultSet[taskRsp.Key] = taskRsp
 		return len(c.taskResultSet) >= taskLen
 	}
@@ -126,4 +126,18 @@ func (c *AsyncTask[T]) Run(timeout time.Duration) error {
 			}
 		}
 	}
+}
+func (c *AsyncTask[T]) ResultWithErr(key string) (T, error) {
+	v, ok := c.taskResultSet[key]
+	if !ok {
+		return *new(T), fmt.Errorf("%s not found", key)
+	}
+	return v.Result, v.Err
+}
+func (c *AsyncTask[T]) Result(key string) (*taskResult[T], error) {
+	v, ok := c.taskResultSet[key]
+	if !ok {
+		return nil, fmt.Errorf("%s not found", key)
+	}
+	return v, nil
 }
